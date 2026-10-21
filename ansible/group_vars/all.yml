@@ -1,0 +1,35 @@
+---
+# Deployment-specific settings (domain, subdomains, extra_domains, app_upstream,
+# timezone) live in infra/terraform/terraform.tfvars; apply.sh passes them in
+# as extra-vars. The inventory it writes supplies image_tag and data_volume_id.
+
+image_tag: "latest"   # passthrough by default; "transcode" for multi-bitrate; "YYYY-MM-DD-no-transcode" to pin
+subdomains:
+  - "stream"
+
+# Additional FQDNs to include on the SWAG cert (different TLDs / domains).
+# SWAG issues a single cert covering all of: <subdomains>.{{ domain }} + these.
+# DNS for each must point at the EIP before apply, or HTTP-01 will fail.
+extra_domains: []
+
+# Auto-shutdown: stop the instance after this many hours of uptime to avoid
+# forgotten-VM spend. The timer resets on every boot. Set to 0 to disable.
+auto_shutdown_hours: 24
+
+timezone: "UTC"
+
+# Paths on the VM
+app_dir: "/opt/hecklevision"
+data_dir: "/data"
+swag_config_dir: "/data/swag/config"
+
+# Images
+rtmp_image: "codingtom/nginx-rtmp-docker"
+swag_image: "linuxserver/swag:latest"
+
+# Container ports — must match the rtmp image's HTTP_PORT / RTMP_PORT env.
+rtmp_http_port: 8080
+rtmp_rtmp_port: 1935
+
+# app_upstream (from tfvars): host of the web app behind the SWAG reverse
+# proxy. Everything that isn't /live/ or /stat on our hostnames goes there.

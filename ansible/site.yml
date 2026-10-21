@@ -1,0 +1,31 @@
+---
+- name: Configure hecklevision-server
+  hosts: hecklevision
+  become: true
+  gather_facts: false
+
+  pre_tasks:
+    - name: Wait for SSH to accept connections
+      ansible.builtin.wait_for_connection:
+        timeout: 300
+      tags: [always]
+
+    - name: Wait for cloud-init to finish (avoid first-boot apt lock races)
+      ansible.builtin.command: cloud-init status --wait
+      changed_when: false
+      failed_when: false
+      tags: [always]
+
+    - name: Gather facts (post cloud-init)
+      ansible.builtin.setup:
+      tags: [always]
+
+  roles:
+    - role: common
+      tags: [common]
+    - role: data_volume
+      tags: [data_volume]
+    - role: docker
+      tags: [docker]
+    - role: app
+      tags: [app]

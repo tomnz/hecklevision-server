@@ -1,0 +1,18 @@
+---
+- name: daemon-reload
+  ansible.builtin.systemd:
+    daemon_reload: true
+
+- name: restart hecklevision
+  ansible.builtin.systemd:
+    name: hecklevision.service
+    state: restarted
+
+# Fast reload for config-only changes (cert renewals, proxy-confs edits):
+# hits nginx inside the swag container without bouncing the whole compose stack.
+- name: reload swag
+  community.docker.docker_container_exec:
+    container: swag
+    command: nginx -s reload
+  failed_when: false   # container may not exist on first run — app tasks will bring it up
+  listen: reload swag

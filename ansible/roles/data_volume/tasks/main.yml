@@ -1,0 +1,66 @@
+---
+# Mount the dedicated EBS data volume at /data.
+#
+# On Nitro instances (t3 family), AWS ignores the Terraform device_name and
+# presents the volume as /dev/nvme1n1 (or similar). We identify the disk by
+# its AWS volume-id-derived /dev/disk/by-id symlink, which is stable.
+
+- name: Assert data_volume_id is set (via inventory from terraform output)
+  ansible.builtin.assert:
+    that:
+      - data_volume_id is defined
+      - data_volume_id | length > 0
+    fail_msg: "data_volume_id must be set in the inventory (apply.sh generates this)."
+
+- name: Derive volume-id without dashes (AWS by-id symlink format)
+  ansible.builtin.set_fact:
+    data_vol_id_nodash: "{{ data_volume_id | regex_replace('-', '') }}"
+
+- name: Wait for the EBS data volume symlink to appear
+  ansible.builtin.wait_for:
+    path: "/dev/disk/by-id/nvme-Amazon_Elastic_Block_Store_{{ data_vol_id_nodash }}"
+    timeout: 120
+
+- name: Resolve real device path for the data volume
+  ansible.builtin.command: "readlink -f /dev/disk/by-id/nvme-Amazon_Elastic_Block_Store_{{ data_vol_id_nodash }}"
+  register: data_device
+  changed_when: false
+
+- name: Format data volume as ext4 (only if unformatted)
+  community.general.filesystem:
+    fstype: ext4
+    dev: "{{ data_device.stdout }}"
+    force: false # never reformat an already-formatted disk
+
+- name: Read filesystem UUID of the data volume
+  ansible.builtin.command: "blkid -s UUID -o value {{ data_device.stdout }}"
+  register: data_uuid
+  changed_when: false
+
+- name: Ensure /data mountpoint exists
+  ansible.builtin.file:
+    path: "{{ data_dir }}"
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+
+- name: Mount /data (fstab-persisted, nofail so a bad disk doesn't block boot)
+  ansible.posix.mount:
+    path: "{{ data_dir }}"
+    src: "UUID={{ data_uuid.stdout }}"
+    fstype: ext4
+    opts: "defaults,nofail,x-systemd.device-timeout=10"
+    state: mounted
+
+- name: Create SWAG + rtmp data subdirectories
+  ansible.builtin.file:
+    path: "{{ item.path }}"
+    state: directory
+    owner: "{{ item.owner | default('root') }}"
+    group: "{{ item.group | default('root') }}"
+    mode: "{{ item.mode | default('0755') }}"
+  loop:
+    - { path: "{{ data_dir }}/swag" }
+    - { path: "{{ swag_config_dir }}", owner: "1000", group: "1000", mode: "0755" }
+    - { path: "{{ data_dir }}/rtmp" }

@@ -1,0 +1,115 @@
+# Managed by Ansible. Do not edit directly.
+#
+# SWAG reverse-proxy config dropped into /config/nginx/proxy-confs/ so it's
+# auto-included by SWAG's default site-confs/default.conf.
+#
+# SWAG's own site-confs/default.conf claims the default_server slot on 443,
+# so we use a wildcard server_name to catch every subdomain of {{ domain }}
+# without enumerating them. Requests for hostnames the SWAG cert doesn't
+# cover fail at the TLS handshake.
+#
+# We do NOT `include /config/nginx/proxy.conf;` anywhere — it sets a lot of
+# headers and timeouts we'd have to override, and nginx errors on duplicate
+# directives in the same scope. Simpler to set only what we need.
+#
+# Routing:
+#   /live/*   → local nginx-rtmp container (HLS playback, same-origin)
+#   /stat*    → local nginx-rtmp container (RTMP stat page)
+#   /*        → {{ app_upstream }} (the app backend)
+
+server {
+    listen 443 ssl;
+    listen [::]:443 ssl;
+    http2 on;
+
+    server_name *.{{ domain }}{% for d in extra_domains | default([]) %} {{ d }}{% endfor %};
+
+    add_header X-Robots-Tag "noindex, nofollow, nosnippet, noarchive" always;
+
+    include /config/nginx/ssl.conf;
+    client_max_body_size 0;
+
+    # --- HLS stream: proxy to local nginx-rtmp container ----------------------
+    location /live/ {
+        resolver 127.0.0.11 valid=30s;
+
+        proxy_http_version 1.1;
+        proxy_set_header Connection "";
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto https;
+
+        # Streaming-specific: no buffering, short timeouts, TCP keepalive.
+        proxy_request_buffering off;
+        proxy_buffering off;
+        proxy_buffer_size 8k;
+        proxy_socket_keepalive on;
+
+        proxy_connect_timeout 10s;
+        proxy_read_timeout 10s;
+        proxy_send_timeout 10s;
+
+        set $upstream_app rtmp;
+        set $upstream_port {{ rtmp_http_port }};
+        set $upstream_proto http;
+        proxy_pass $upstream_proto://$upstream_app:$upstream_port;
+    }
+
+    # --- RTMP stat page: proxy to local nginx-rtmp container ------------------
+    location ~ /stat(/?|/style\.xsl)$ {
+        resolver 127.0.0.11 valid=30s;
+
+        proxy_http_version 1.1;
+        proxy_set_header Connection "";
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto https;
+
+        set $upstream_app rtmp;
+        set $upstream_port {{ rtmp_http_port }};
+        set $upstream_proto http;
+        proxy_pass $upstream_proto://$upstream_app:$upstream_port;
+    }
+
+    # --- Everything else: proxy to the Heroku app -----------------------------
+    location / {
+        # CORS preflight for cross-origin players (kept from legacy config).
+        if ($request_method = 'OPTIONS') {
+            add_header 'Access-Control-Allow-Origin' '*';
+            add_header 'Access-Control-Allow-Methods' 'GET, POST, OPTIONS';
+            add_header 'Access-Control-Allow-Headers' 'User-Agent, X-Requested-With, If-Modified-Since, Cache-Control, Content-Type, Range';
+            add_header 'Access-Control-Expose-Headers' 'Content-Length, Content-Range, Content-Type';
+            add_header 'Access-Control-Max-Age' 1728000;
+            add_header 'Content-Type' 'text/plain; charset=utf8';
+            add_header 'Content-Length' 0;
+            return 204;
+        }
+
+        client_max_body_size 1000m;
+        client_body_buffer_size 128k;
+
+        proxy_next_upstream error timeout invalid_header http_500 http_502 http_503;
+
+        send_timeout 1m;
+        proxy_read_timeout 1m;
+        proxy_send_timeout 1m;
+        proxy_connect_timeout 1m;
+
+        proxy_http_version 1.1;
+        proxy_set_header Connection "";
+
+        # Heroku routing requires the upstream hostname in Host; rewrite
+        # redirects so they come back as our own hostname.
+        proxy_set_header Host {{ app_upstream }};
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto https;
+        proxy_set_header X-Forwarded-Host $host;
+        proxy_redirect https://{{ app_upstream }}/ /;
+
+        proxy_buffers 32 4k;
+        proxy_pass https://{{ app_upstream }};
+    }
+}

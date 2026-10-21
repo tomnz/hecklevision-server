@@ -1,0 +1,6 @@
+[submodule "container"]
+	path = container
+	url = https://github.com/tomnz/nginx-rtmp-docker.git
+[submodule "frontend"]
+	path = frontend
+	url = https://github.com/tomnz/hecklevision.git

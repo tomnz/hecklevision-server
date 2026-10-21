@@ -1,0 +1,27 @@
+# macOS
+.DS_Store
+
+# Editor / IDE
+.idea/
+.vscode/
+*.swp
+
+# Terraform
+**/.terraform/
+**/*.tfstate
+**/*.tfstate.*
+**/*.tfstate.backup
+**/.terraform.lock.hcl.backup
+**/crash.log
+**/crash.*.log
+# user-local; terraform.tfvars.example is committed
+infra/terraform/terraform.tfvars
+infra/terraform/*.auto.tfvars
+
+# Ansible
+ansible/inventory.ini
+ansible/*.retry
+ansible/.vault_pass
+
+# Personal notes for Claude Code (deployment specifics, history)
+CLAUDE.local.md

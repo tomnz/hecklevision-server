@@ -1,0 +1,43 @@
+# Managed by Ansible. Do not edit directly.
+services:
+  rtmp:
+    image: {{ rtmp_image }}:{{ image_tag }}
+    container_name: rtmp
+    restart: unless-stopped
+    networks: [local]
+    ports:
+      - "{{ rtmp_rtmp_port }}:{{ rtmp_rtmp_port }}/tcp"
+      - "127.0.0.1:{{ rtmp_http_port }}:{{ rtmp_http_port }}/tcp"
+    environment:
+      HTTP_PORT: "{{ rtmp_http_port }}"
+      RTMP_PORT: "{{ rtmp_rtmp_port }}"
+    tmpfs:
+      - /appdata
+
+  swag:
+    image: {{ swag_image }}
+    container_name: swag
+    restart: unless-stopped
+    cap_add: [NET_ADMIN]
+    networks: [local]
+    environment:
+      PUID: "1000"
+      PGID: "1000"
+      TZ: "{{ timezone }}"
+      URL: "{{ domain }}"
+      SUBDOMAINS: "{{ subdomains | join(',') }},"
+{% if extra_domains | default([]) | length > 0 %}
+      EXTRA_DOMAINS: "{{ extra_domains | join(',') }}"
+{% endif %}
+      VALIDATION: "http"
+      ONLY_SUBDOMAINS: "true"
+    volumes:
+      - {{ swag_config_dir }}:/config
+    ports:
+      - "80:80"
+      - "443:443"
+    depends_on: [rtmp]
+
+networks:
+  local:
+    driver: bridge

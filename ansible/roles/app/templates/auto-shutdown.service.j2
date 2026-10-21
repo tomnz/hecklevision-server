@@ -1,0 +1,7 @@
+# Managed by Ansible. Do not edit directly.
+[Unit]
+Description=Auto-shutdown after {{ auto_shutdown_hours }}h uptime
+
+[Service]
+Type=oneshot
+ExecStart=/usr/sbin/shutdown -h now

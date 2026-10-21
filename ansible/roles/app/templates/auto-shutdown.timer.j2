@@ -1,0 +1,10 @@
+# Managed by Ansible. Do not edit directly.
+[Unit]
+Description=Shut down the instance {{ auto_shutdown_hours }}h after boot
+
+[Timer]
+OnBootSec={{ auto_shutdown_hours }}h
+Unit=auto-shutdown.service
+
+[Install]
+WantedBy=timers.target
