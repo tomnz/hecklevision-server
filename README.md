@@ -129,7 +129,7 @@ Viewer delay comes from three settings that only work together:
 |---|---|---|
 | Keyframe interval | OBS → Settings → Output → Streaming | 1s (23 frames at 23.976 fps = 0.959s) |
 | `hls_fragment`, `hls_playlist_length` | `ansible/group_vars/all.yml` | `900ms`, `16s` |
-| `liveSyncDurationCount`, `liveMaxLatencyDurationCount` | `frontend/static/player.js` | 4, 10 (segments) |
+| `liveSyncDurationCount`, `liveMaxLatencyDurationCount` | `frontend/static/player.js` | 3, 10 (segments) |
 
 A segment closes on the first keyframe at or past `hls_fragment`, so the OBS keyframe interval sets the real segment length; `hls_fragment` must sit just below it, or segments double. The player counts in segments: it targets `liveSyncDurationCount` behind live and jumps forward past `liveMaxLatencyDurationCount`, which must stay inside the playlist. Cast receivers ignore `player.js` and only benefit from shorter segments.
 
