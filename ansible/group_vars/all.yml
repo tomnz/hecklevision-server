@@ -42,7 +42,7 @@ rtmp_rtmp_port: 1935
 # threshold in segments, which must fit inside the playlist. Change these
 # together.
 hls_fragment: "900ms"
-hls_playlist_length: "16s"
+hls_playlist_length: "18s"
 
 # app_upstream (from tfvars): host of the web app behind the SWAG reverse
 # proxy. Everything that isn't /live/ or /stat on our hostnames goes there.
