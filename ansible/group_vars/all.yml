@@ -31,5 +31,13 @@ swag_image: "linuxserver/swag:latest"
 rtmp_http_port: 8080
 rtmp_rtmp_port: 1935
 
+# HLS timing. A segment closes on the first keyframe at or past hls_fragment,
+# so keep it just under the encoder's keyframe interval: OBS rounds a 1s
+# interval down to whole frames (0.959s at 23.976 fps), giving ~1s segments
+# here. hls_playlist_length is how much recent video the live playlist lists,
+# which bounds how far behind live a player can sit.
+hls_fragment: "900ms"
+hls_playlist_length: "16s"
+
 # app_upstream (from tfvars): host of the web app behind the SWAG reverse
 # proxy. Everything that isn't /live/ or /stat on our hostnames goes there.

@@ -11,6 +11,8 @@ services:
     environment:
       HTTP_PORT: "{{ rtmp_http_port }}"
       RTMP_PORT: "{{ rtmp_rtmp_port }}"
+      HLS_FRAGMENT: "{{ hls_fragment }}"
+      HLS_PLAYLIST_LENGTH: "{{ hls_playlist_length }}"
     tmpfs:
       - /appdata
 
