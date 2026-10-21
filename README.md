@@ -35,7 +35,7 @@ hecklevision-server/
 
 The two submodules are independent GitHub repos:
 
-- **`container/`** ([tomnz/nginx-rtmp-docker](https://github.com/tomnz/nginx-rtmp-docker), branch `main`) — Alpine 3.20 + packaged nginx + `nginx-mod-rtmp`. Supports a `TRANSCODE` build arg (default `false`) that picks `nginx/nginx.conf` vs `nginx/nginx.transcode.conf`. Runtime env vars (`HTTP_PORT`, `RTMP_PORT`, `HLS_FRAGMENT`, `HLS_PLAYLIST_LENGTH`, `HLS_SYNC`) allow tuning without rebuilding. Publish pipeline: `container/scripts/publish.sh` builds both variants and pushes to Docker Hub with dated + `:latest` + `:transcode` + `:archive-*` tags.
+- **`container/`** ([tomnz/nginx-rtmp-docker](https://github.com/tomnz/nginx-rtmp-docker), branch `main`) — Alpine 3.24 + packaged nginx + `nginx-mod-rtmp`. Supports a `TRANSCODE` build arg (default `false`) that picks `nginx/nginx.conf` vs `nginx/nginx.transcode.conf`. Runtime env vars (`HTTP_PORT`, `RTMP_PORT`, `HLS_FRAGMENT`, `HLS_PLAYLIST_LENGTH`, `HLS_SYNC`) allow tuning without rebuilding. Publish pipeline: `container/scripts/publish.sh` builds both variants and pushes to Docker Hub with dated + `:latest` + `:transcode` + `:archive-*` tags.
 - **`frontend/`** ([tomnz/hecklevision](https://github.com/tomnz/hecklevision), branch `master` — kept on `master` so Heroku auto-deploys from push). Flask app, deployed by `git push origin master`.
 
 ## Prerequisites
@@ -120,6 +120,18 @@ Re-run it any time. Both layers are idempotent.
 | Use the web app while the VM is stopped | Go straight to `https://<app_upstream>`. `/submit`, `/messages` and `/messages?history` work; the player has no stream. |
 
 The compose stack comes back automatically on boot via `hecklevision.service` (systemd).
+
+## Stream latency tuning
+
+Viewer delay comes from three settings that only work together:
+
+| Setting | Where | Current |
+|---|---|---|
+| Keyframe interval | OBS → Settings → Output → Streaming | 1s (23 frames at 23.976 fps = 0.959s) |
+| `hls_fragment`, `hls_playlist_length` | `ansible/group_vars/all.yml` | `900ms`, `16s` |
+| `liveSyncDurationCount`, `liveMaxLatencyDurationCount` | `frontend/static/player.js` | 4, 10 (segments) |
+
+A segment closes on the first keyframe at or past `hls_fragment`, so the OBS keyframe interval sets the real segment length; `hls_fragment` must sit just below it, or segments double. The player counts in segments: it targets `liveSyncDurationCount` behind live and jumps forward past `liveMaxLatencyDurationCount`, which must stay inside the playlist. Cast receivers ignore `player.js` and only benefit from shorter segments.
 
 ## RTMP image variants
 

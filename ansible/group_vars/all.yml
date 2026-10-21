@@ -36,6 +36,11 @@ rtmp_rtmp_port: 1935
 # interval down to whole frames (0.959s at 23.976 fps), giving ~1s segments
 # here. hls_playlist_length is how much recent video the live playlist lists,
 # which bounds how far behind live a player can sit.
+#
+# Coupled settings: the OBS keyframe interval sets the real segment length,
+# and frontend/static/player.js counts its live-edge target and catchup
+# threshold in segments, which must fit inside the playlist. Change these
+# together.
 hls_fragment: "900ms"
 hls_playlist_length: "16s"
 
